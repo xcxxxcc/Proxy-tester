@@ -1,8 +1,9 @@
 {
+  "version": 1,
   "build": {
-    "builder": "nodejs",
-    "installCommand": "npm install",
-    "buildCommand": "npm install",
-    "startCommand": "node index.js"
+    "builder": "nodejs"
+  },
+  "run": {
+    "cmd": "npm start"
   }
 }
