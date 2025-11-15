@@ -1,1 +1,151 @@
-https://haiwoody.alamsyahwarkop25.workers.dev/
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    // -------- API EXTRACTOR -----------
+    if (url.pathname === "/api/extract") {
+      const target = url.searchParams.get("url");
+      if (!target) {
+        return new Response(JSON.stringify({ error: "URL missing" }), {
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      // Panggil YouTube API via yt-dlp proxy aman
+      const api = `https://yt-dlp-proxy.warkoptevee.workers.dev/?url=${encodeURIComponent(
+        target
+      )}`;
+
+      try {
+        const res = await fetch(api);
+        const data = await res.json();
+
+        return new Response(JSON.stringify(data), {
+          headers: { "content-type": "application/json" },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.toString() }), {
+          headers: { "content-type": "application/json" },
+        });
+      }
+    }
+
+    // -------- STATIC FILES ----------
+    if (url.pathname === "/" || url.pathname === "/index.html") {
+      return new Response(INDEX_HTML, { headers: { "content-type": "text/html" } });
+    }
+
+    if (url.pathname === "/scan" || url.pathname === "/scan.html") {
+      return new Response(SCAN_HTML, { headers: { "content-type": "text/html" } });
+    }
+
+    return new Response("Not Found", { status: 404 });
+  },
+};
+
+// -------------------------------------------
+// INDEX HTML (AUTO SERVED IN WORKER)
+// -------------------------------------------
+
+const INDEX_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+<title>Game Stream Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#111; color:#fff; font-family:Arial; padding:20px; }
+.btn {
+  display:block; margin:10px 0; padding:15px;
+  background:#222; color:#0f0; text-decoration:none;
+  border-radius:8px; font-size:20px; text-align:center;
+}
+</style>
+</head>
+<body>
+<h1>Game Stream Menu</h1>
+
+<a class="btn" href="/scan?game=ML">Mobile Legends</a>
+<a class="btn" href="/scan?game=HOK">Honor of Kings</a>
+<a class="btn" href="/scan?game=DOTA2">DOTA 2</a>
+<a class="btn" href="/scan?game=CS2">Counter Strike 2</a>
+<a class="btn" href="/scan?game=LOL">League of Legends</a>
+<a class="btn" href="/scan?game=VALORANT">Valorant</a>
+<a class="btn" href="/scan?game=EFOOTBALL">eFootball</a>
+
+<br><br>
+<h2>Custom Link</h2>
+<a class="btn" href="/scan">Masuk ke Scanner</a>
+
+</body>
+</html>
+`;
+
+// -------------------------------------------
+// SCAN PAGE (auto extract link YouTube/dll)
+// -------------------------------------------
+
+const SCAN_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+<title>Extractor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { background:#000; color:#fff; font-family:Arial; padding:20px; }
+input {
+  width:100%; padding:12px; margin:10px 0;
+  border-radius:8px; border:none; font-size:18px;
+}
+.btn {
+  background:#0f0; color:#000; font-size:18px;
+  padding:12px; width:100%; border-radius:8px;
+  border:none; cursor:pointer; margin-bottom:20px;
+}
+.box {
+  padding:10px; background:#111; border-radius:8px;
+  margin-top:15px; word-break:break-all;
+}
+</style>
+</head>
+<body>
+
+<h2>Extractor Panel</h2>
+
+<input id="url" placeholder="Masukkan link YouTube / m3u8 / dash">
+
+<button class="btn" onclick="extract()">EXTRACT</button>
+
+<div id="result"></div>
+
+<script>
+async function extract() {
+  const url = document.getElementById("url").value.trim();
+  if (!url) return alert("Masukkan link dulu boss");
+
+  document.getElementById("result").innerHTML = "Loading...";
+
+  const api = "/api/extract?url=" + encodeURIComponent(url);
+
+  const res = await fetch(api);
+  const data = await res.json();
+
+  let out = "<h3>Hasil:</h3>";
+
+  if (data.best) out += "<div class='box'><b>BEST:</b><br>" + data.best + "</div>";
+  if (data.master) out += "<div class='box'><b>MASTER:</b><br>" + data.master + "</div>";
+
+  if (data.streams) {
+    out += "<h3>SEMUA STREAM:</h3>";
+    data.streams.forEach(x => {
+      out += "<div class='box'>" + x + "</div>";
+    });
+  }
+
+  document.getElementById("result").innerHTML = out;
+}
+</script>
+
+</body>
+</html>
+`;
