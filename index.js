@@ -2,28 +2,30 @@ import express from "express";
 import fetch from "node-fetch";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 app.get("/", (req, res) => {
-  res.send("Proxy is running.");
+  res.send("Zeabur Proxy OK");
 });
 
 app.get("/proxy", async (req, res) => {
-  let url = req.query.url;
-  if (!url) return res.status(400).send("Missing ?url=");
+  const url = req.query.url;
+  if (!url) return res.status(400).send("Missing url=");
 
   try {
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0"
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "*/*",
       }
     });
 
-    const data = await response.text();
-    res.send(data);
+    res.set("Content-Type", response.headers.get("content-type"));
+    response.body.pipe(res);
+
   } catch (err) {
-    res.status(500).send("Proxy error: " + err);
+    res.status(500).send("Proxy error: " + err.message);
   }
 });
 
-app.listen(PORT, () => console.log("Running on " + PORT));
+app.listen(PORT, () => console.log("Proxy running on " + PORT));
