@@ -1,60 +1,34 @@
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-    const target = url.searchParams.get("url");
+// worker.js - simple proxy for video manifests (Cloudflare Worker)
+addEventListener('fetch', event => event.respondWith(handle(event.request)))
 
-    if (!target) {
-      return new Response("Missing ?url=", { status: 400 });
-    }
+async function handle(req) {
+  const url = new URL(req.url);
+  const target = url.searchParams.get('url') || url.pathname.replace('/proxy/','')
+  if (!target) return new Response('Missing url', { status: 400 })
 
-    // Random User-Agent
-    const uaList = [
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36",
-      "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36",
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/16.4 Safari/605.1.15",
-      "Mozilla/5.0 (SMART-TV; Tizen 6.0) AppleWebKit/537.36 SamsungBrowser/9.2 TV Safari/537.36",
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"
-    ];
-    const userAgent = uaList[Math.floor(Math.random() * uaList.length)];
-
-    // Random IP Spoof
-    const randIP = () => {
-      return Array(4).fill(0).map(x => Math.floor(Math.random() * 255)).join(".");
-    };
-
-    const headers = {
-      "User-Agent": userAgent,
-      "X-Forwarded-For": randIP(),
-      "X-Real-IP": randIP(),
-      "Referer": "https://www.youtube.com/",
-      "Origin": "https://www.youtube.com/",
-      "Accept": "*/*"
-    };
-
-    try {
-      const response = await fetch(target, {
-        method: "GET",
-        headers: headers
-      });
-
-      const contentType =
-        response.headers.get("content-type") ||
-        "application/octet-stream";
-
-      const body = await response.arrayBuffer();
-
-      return new Response(body, {
-        status: response.status,
-        headers: {
-          "Content-Type": contentType,
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "*",
-          "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS"
-        }
-      });
-
-    } catch (err) {
-      return new Response("Proxy Error: " + err, { status: 500 });
-    }
+  try {
+    // fetch target
+    const out = await fetch(target, {
+      method: req.method,
+      headers: {
+        "User-Agent": req.headers.get("user-agent") || "Mozilla/5.0",
+        "Accept": "*/*",
+        "Referer": req.headers.get("referer") || "https://www.youtube.com"
+      }
+    })
+    // clone response and remove disallowed headers
+    const resHeaders = new Headers(out.headers)
+    // strip problematic headers
+    resHeaders.delete('content-security-policy')
+    resHeaders.delete('content-security-policy-report-only')
+    resHeaders.delete('x-frame-options')
+    resHeaders.set('access-control-allow-origin','*')
+    resHeaders.set('access-control-allow-methods','GET,HEAD,OPTIONS')
+    resHeaders.set('access-control-allow-headers','Range,Content-Type,Authorization')
+    // preserve content-type
+    const body = await out.arrayBuffer()
+    return new Response(body, { status: out.status, headers: resHeaders })
+  } catch (e) {
+    return new Response('Worker fetch error: '+String(e), { status: 502 })
   }
-};
+}
