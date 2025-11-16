@@ -2,23 +2,25 @@ export default {
   async fetch(request) {
     const url = new URL(request.url);
 
-    // -------- API EXTRACTOR -----------
+    // ============================================
+    // API EXTRACTOR (BEST, MASTER, ALL STREAM)
+    // ============================================
     if (url.pathname === "/api/extract") {
       const target = url.searchParams.get("url");
       if (!target) {
-        return new Response(JSON.stringify({ error: "URL missing" }), {
+        return new Response(JSON.stringify({ error: "no url" }), {
           headers: { "content-type": "application/json" },
         });
       }
 
-      // Panggil YouTube API via yt-dlp proxy aman
-      const api = `https://yt-dlp-proxy.warkoptevee.workers.dev/?url=${encodeURIComponent(
+      // PROXY (aman, tidak kena CORS)
+      const proxy = `https://yt-dlp-proxy.warkoptevee.workers.dev/?url=${encodeURIComponent(
         target
       )}`;
 
       try {
-        const res = await fetch(api);
-        const data = await res.json();
+        const x = await fetch(proxy);
+        const data = await x.json();
 
         return new Response(JSON.stringify(data), {
           headers: { "content-type": "application/json" },
@@ -30,61 +32,88 @@ export default {
       }
     }
 
-    // -------- STATIC FILES ----------
+    // ==============================
+    // HOME PAGE
+    // ==============================
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      return new Response(INDEX_HTML, { headers: { "content-type": "text/html" } });
+      return new Response(INDEX_HTML, {
+        headers: { "content-type": "text/html" },
+      });
     }
 
-    if (url.pathname === "/scan" || url.pathname === "/scan.html") {
-      return new Response(SCAN_HTML, { headers: { "content-type": "text/html" } });
+    // ==============================
+    // SCAN PAGE
+    // ==============================
+    if (url.pathname.startsWith("/scan")) {
+      return new Response(SCAN_HTML, {
+        headers: { "content-type": "text/html" },
+      });
     }
 
-    return new Response("Not Found", { status: 404 });
+    return new Response("404", { status: 404 });
   },
 };
 
-// -------------------------------------------
-// INDEX HTML (AUTO SERVED IN WORKER)
-// -------------------------------------------
-
+// ======================================================================
+// INDEX PAGE – MENU BESAR + FITUR PROJECT LAMA
+// ======================================================================
 const INDEX_HTML = `
 <!DOCTYPE html>
 <html>
 <head>
-<title>Game Stream Panel</title>
+<title>WARKOP PANEL</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body { background:#111; color:#fff; font-family:Arial; padding:20px; }
+body {
+  background:#000;
+  color:#fff;
+  font-family:Arial;
+  padding:20px;
+  text-align:center;
+}
 .btn {
-  display:block; margin:10px 0; padding:15px;
-  background:#222; color:#0f0; text-decoration:none;
-  border-radius:8px; font-size:20px; text-align:center;
+  background:#111;
+  color:#0f0;
+  display:block;
+  padding:15px;
+  margin:10px 0;
+  border-radius:10px;
+  text-decoration:none;
+  font-size:22px;
 }
 </style>
 </head>
 <body>
-<h1>Game Stream Menu</h1>
 
+<h1>WARKOP STREAM PANEL</h1>
+
+<!-- GAME -->
 <a class="btn" href="/scan?game=ML">Mobile Legends</a>
 <a class="btn" href="/scan?game=HOK">Honor of Kings</a>
 <a class="btn" href="/scan?game=DOTA2">DOTA 2</a>
+<a class="btn" href="/scan?game=PUBG">PUBG Mobile</a>
 <a class="btn" href="/scan?game=CS2">Counter Strike 2</a>
 <a class="btn" href="/scan?game=LOL">League of Legends</a>
-<a class="btn" href="/scan?game=VALORANT">Valorant</a>
-<a class="btn" href="/scan?game=EFOOTBALL">eFootball</a>
+<a class="btn" href="/scan?game=VAL">Valorant</a>
+<a class="btn" href="/scan?game=EFOOT">eFootball</a>
+
+<!-- KATEGORI LAIN -->
+<br><h2>Category</h2>
+<a class="btn" href="/scan?cat=ANIME">ANIME</a>
+<a class="btn" href="/scan?cat=BOLA">BOLA</a>
+<a class="btn" href="/scan?cat=ESPORT">ESPORTS</a>
 
 <br><br>
 <h2>Custom Link</h2>
-<a class="btn" href="/scan">Masuk ke Scanner</a>
+<a class="btn" href="/scan">Open Scanner</a>
 
 </body>
 </html>
 `;
 
-// -------------------------------------------
-// SCAN PAGE (auto extract link YouTube/dll)
-// -------------------------------------------
-
+// ======================================================================
+// SCAN PAGE – BEST STREAM, MASTER, ALL STREAM
+// ======================================================================
 const SCAN_HTML = `
 <!DOCTYPE html>
 <html>
@@ -98,13 +127,14 @@ input {
   border-radius:8px; border:none; font-size:18px;
 }
 .btn {
-  background:#0f0; color:#000; font-size:18px;
-  padding:12px; width:100%; border-radius:8px;
+  background:#0f0; color:#000; font-size:20px;
+  padding:12px; width:100%; border-radius:10px;
   border:none; cursor:pointer; margin-bottom:20px;
 }
 .box {
   padding:10px; background:#111; border-radius:8px;
   margin-top:15px; word-break:break-all;
+  font-size:17px;
 }
 </style>
 </head>
@@ -112,7 +142,7 @@ input {
 
 <h2>Extractor Panel</h2>
 
-<input id="url" placeholder="Masukkan link YouTube / m3u8 / dash">
+<input id="url" placeholder="Masukkan Link YouTube / HLS / DASH">
 
 <button class="btn" onclick="extract()">EXTRACT</button>
 
@@ -121,24 +151,23 @@ input {
 <script>
 async function extract() {
   const url = document.getElementById("url").value.trim();
-  if (!url) return alert("Masukkan link dulu boss");
+  if (!url) return alert("Masukkan link dulu bos.");
 
-  document.getElementById("result").innerHTML = "Loading...";
+  document.getElementById("result").innerHTML = "Processing...";
 
   const api = "/api/extract?url=" + encodeURIComponent(url);
-
   const res = await fetch(api);
   const data = await res.json();
 
-  let out = "<h3>Hasil:</h3>";
+  let out = "";
 
-  if (data.best) out += "<div class='box'><b>BEST:</b><br>" + data.best + "</div>";
-  if (data.master) out += "<div class='box'><b>MASTER:</b><br>" + data.master + "</div>";
+  if (data.best) out += "<div class='box'><b>BEST STREAM:</b><br>"+data.best+"</div>";
+  if (data.master) out += "<div class='box'><b>MASTER STREAM:</b><br>"+data.master+"</div>";
 
   if (data.streams) {
-    out += "<h3>SEMUA STREAM:</h3>";
-    data.streams.forEach(x => {
-      out += "<div class='box'>" + x + "</div>";
+    out += "<h3>All Streams:</h3>";
+    data.streams.forEach(s=>{
+      out += "<div class='box'>"+s+"</div>";
     });
   }
 
